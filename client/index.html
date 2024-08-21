@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>todo list</title>
+    <style>
+        main {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            top: 20%;
+            width: 30%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .tasks {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            width: 100%;
+            margin-top: 20px;
+        }
+        .task {
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px solid black;
+            padding: 10px 0;
+        }
+        @media (max-width: 800px) {
+            main {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>TODO List</h1>
+        <div>
+            <input placeholder="put a new task" type="text" id="inputTask" />
+            <button id="addButton">add</button>
+        </div>
+        <div class="tasks">
+            <h2>finished</h2>
+        </div>
+        <div class="tasks">
+            <h2>not finished</h2>
+        </div>
+    </main>
+    <script>
+        let tasks = document.querySelectorAll(".tasks")
+        let inputTask = document.getElementById("inputTask")
+        let addButton = document.getElementById("addButton")
+
+        let finishedTasks = tasks[0]
+        let unfinishedTasks = tasks[1]
+
+        function createTaskHTML(id, title, done) {
+            return `
+            <div class="task" id="task-${id}">
+                <span>${title}</span>
+                <div class="">
+                    ${!done ? `<button onclick="updateTaskService('${title}',${id})" class="done-button">done</button>` : ""}
+                    <button onclick="excludeTaskService(${id})" class="exclude-button">exclude</button>
+                </div>
+            </div>
+            `;
+        }
+
+        function createTaskService(title, done = false) {
+            fetch(`http://localhost:8000/tasks`, {
+                ...options("POST"),
+                body: JSON.stringify({
+                    title,
+                    done
+                })
+            }).then(async (response) => {
+                let {data} = await response.json()
+                createTask(data.id, data.title, data.done)
+            })
+
+        }
+
+        function createTask(id, title, done = false) {
+            if(done) return finishedTasks.innerHTML += createTaskHTML(id, title, done)
+            unfinishedTasks.innerHTML += createTaskHTML(id, title, done)
+        }
+
+        addButton.addEventListener("click", () => {
+            if(inputTask.value) createTaskService(inputTask.value)
+            inputTask.value = ""
+        })
+
+        function options(method) {
+            return {
+                method,
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+            }
+        }
+
+        function excludeTaskService(id) {
+            fetch(`http://localhost:8000/tasks/${id}`, options("DELETE"))
+                .then(() => {
+                    let taskElement = document.getElementById(`task-${id}`)
+                    if(taskElement) taskElement.remove()
+                })
+        }
+
+        function updateTaskService(title, id) {
+            console.log("sadfnjadsnfjnj")
+            fetch(`http://localhost:8000/tasks/${id}`, {
+                ...options("PUT"),
+                body: JSON.stringify({title, done: true})
+            })
+                .then(async (response) => {
+                    let res = await response.json()
+                    if(res) {
+                        moveTaskToFinished(id)
+                    }
+                })
+        }
+
+        function moveTaskToFinished(id) {
+            let taskElement = document.getElementById(`task-${id}`)
+            if (taskElement) {
+                taskElement.remove()
+                finishedTasks.innerHTML += taskElement.outerHTML;
+                let updatedTaskElement = finishedTasks.querySelector(`#task-${id}`)
+                if (updatedTaskElement) {
+                    updatedTaskElement.querySelector(".done-button").remove()
+                }
+            }
+        }
+
+        async function getAllTasks() {
+            fetch("http://localhost:8000/tasks", options("GET"))
+                .then(async (response) => {
+                    let {data} = await response.json()
+                    data.forEach(task => {
+                        console.log(task)
+                        createTask(task.id, task.title, task.done)
+                    });
+                    return data
+                })
+        }
+
+        document.addEventListener("DOMContentLoaded", async () => {
+            console.log("doc loaded")
+            getAllTasks()
+        })
+
+
+
+    </script>
+</body>
+</html>
